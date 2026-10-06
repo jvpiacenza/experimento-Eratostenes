@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Experimento de Eratóstenes — Edição Brasil</title>
+<style>
+/* ============================================================
+   PALETA — papel envelhecido, tintas terrosas, sem neon
+   ============================================================ */
+:root {
+  --papel:        #efe6d2;
+  --papel-claro:  #f8f2e3;
+  --papel-medio:  #e8ddc5;
+  --papel-escuro: #ddd0b3;
+  --tinta:        #2f281c;
+  --tinta-media:  #574b39;
+  --tinta-suave:  #857960;
+  --tinta-fraca:  #a99b80;
+  --linha:        #cfc0a1;
+  --linha-suave:  #ddd0b3;
+  --terracota:    #a8543a;
+  --terracota-cl: #c07058;
+  --oliva:        #5e6b48;
+  --oliva-cl:     #7d8a64;
+  --sol:          #c48a2c;
+  --sol-cl:       #dda84a;
+  --sol-brilho:   #f0cd83;
+  --noite:        #37404f;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+  color: var(--tinta);
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 244, 214, 0.75), transparent 55%),
+    radial-gradient(circle at 82% 92%, rgba(210, 190, 155, 0.55), transparent 55%),
+    radial-gradient(circle at 50% 50%, #f2ead6 0%, #e9dfc6 100%);
+  padding: 26px 20px 46px;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* textura sutil de papel */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(120, 100, 70, 0.022) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(120, 100, 70, 0.018) 0 1px, transparent 1px 4px);
+  z-index: 0;
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+/* ============================================================
+   CABEÇALHO
+   ============================================================ */
+.cabecalho {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 2px 6px 14px;
+  border-bottom: 1px solid var(--linha);
+}
+
+.cabecalho h1 {
+  font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  font-size: clamp(1.4rem, 2.7vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--tinta);
+  line-height: 1.15;
+}
+
+.cabecalho h1 em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--terracota);
+}
+
+.subtitulo {
+  font-size: 0.86rem;
+  color: var(--tinta-suave);
+  margin-top: 6px;
+  font-style: italic;
+}
+
+.data-badge {
+  font-family: Georgia, serif;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--tinta-media);
+  white-space: nowrap;
+  padding-bottom: 3px;
+}
+
+/* ============================================================
+   PAINÉIS
+   ============================================================ */
+.painel {
+  background: linear-gradient(170deg, var(--papel-claro) 0%, var(--papel-medio) 100%);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 18px 18px 16px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 3px 14px rgba(80, 60, 30, 0.07);
+}
+
+.painel-titulo {
+  font-family: Georgia, serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--tinta-suave);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.painel-titulo::before {
+  content: '';
+  width: 16px;
+  height: 1px;
+  background: var(--terracota);
+}
+
+/* ============================================================
+   MAPA
+   ============================================================ */
+.mapa-wrap {
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--papel-claro);
+  border: 1px solid var(--linha-suave);
+}
+
+#mapa { display: block; width: 100%; height: auto; }
+
+.mapa-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 14px;
+  font-size: 0.78rem;
+  color: var(--tinta-suave);
+}
+
+.leg-item { display: flex; align-items: center; gap: 8px; }
+
+.leg-cor {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.leg-linha {
+  width: 20px;
+  height: 0;
+  border-top: 2px dashed var(--sol);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   GNOMONS
+   ============================================================ */
+.gnomons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.gnomon-card {
+  background: linear-gradient(170deg, var(--papel-claro) 0%, var(--papel-medio) 100%);
+  border: 1px solid var(--linha);
+  border-radius: 10px;
+  padding: 16px 16px 18px;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 3px 14px rgba(80, 60, 30, 0.07);
+  transition: box-shadow 0.25s;
+}
+
+.gnomon-card.destaque {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.6) inset,
+    0 3px 14px rgba(80, 60, 30, 0.07),
+    0 0 0 2px var(--acento-suave);
+}
+
+.gnomon-topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.gnomon-nome {
+  font-family: Georgia, serif;
+  font-size: 1.14rem;
+  font-weight: 700;
+  color: var(--acento);
+  letter-spacing: -0.2px;
+}
+
+.gnomon-coord {
+  font-size: 0.72rem;
+  color: var(--tinta-fraca);
+  font-variant-numeric: tabular-nums;
+  font-style: italic;
+}
+
+.gnomon-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  background: var(--papel-claro);
+  border: 1px solid var(--linha-suave);
+}
+
+.gnomon-leituras {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.leitura {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid var(--linha-suave);
+  border-radius: 6px;
+  padding: 9px 11px;
+}
+
+.leitura-rot {
+  display: block;
+  font-size: 0.64rem;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  margin-bottom: 3px;
+  font-weight: 600;
+}
+
+.leitura-val {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+}
+
+.leitura-val.acento { color: var(--acento); }
+
+/* ============================================================
+   CONTROLES
+   ============================================================ */
+.controles {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tinta);
+  background: var(--papel-claro);
+  border: 1px solid var(--linha);
+  border-radius: 7px;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: all 0.16s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.7) inset, 0 1px 3px rgba(80,60,30,0.06);
+}
+
+.btn:hover {
+  background: #fffaf0;
+  border-color: var(--tinta-fraca);
+}
+
+.btn:active { transform: translateY(1px); }
+
+.btn.primario {
+  background: linear-gradient(180deg, #fff2d4, #f6e3b8);
+  border-color: var(--sol);
+  color: #6d4b16;
+}
+
+.btn.primario:hover { background: #fff5dd; }
+
+.slider-bloco {
+  flex: 1 1 340px;
+  min-width: 260px;
+}
+
+.slider-cabecalho {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.slider-rot {
+  font-size: 0.68rem;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  font-weight: 700;
+}
+
+.slider-hora {
+  font-family: Georgia, serif;
+  font-size: 1.42rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta);
+  letter-spacing: -0.5px;
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+      #7d7660 0%,
+      #b5a482 18%,
+      #e0c279 38%,
+      #f2d68b 50%,
+      #e0c279 62%,
+      #b5a482 82%,
+      #7d7660 100%);
+  outline: none;
+  cursor: pointer;
+  border: 1px solid var(--linha);
+  box-shadow: 0 1px 2px rgba(80,60,30,0.08) inset;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff5dc, #e0b255 55%, #a97d2c 100%);
+  border: 2px solid var(--papel-claro);
+  box-shadow: 0 1px 4px rgba(80, 55, 20, 0.35);
+  cursor: grab;
+  transition: transform 0.15s;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+input[type="range"]::-webkit-slider-thumb:active { cursor: grabbing; }
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff5dc, #e0b255 55%, #a97d2c 100%);
+  border: 2px solid var(--papel-claro);
+  box-shadow: 0 1px 4px rgba(80, 55, 20, 0.35);
+  cursor: grab;
+}
+
+.slider-escala {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.68rem;
+  color: var(--tinta-fraca);
+  font-variant-numeric: tabular-nums;
+  font-family: Georgia, serif;
+  font-style: italic;
+}
+
+/* ============================================================
+   RESULTADOS
+   ============================================================ */
+.resultados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.res-card {
+  background: rgba(255, 255, 255, 0.42);
+  border: 1px solid var(--linha-suave);
+  border-radius: 8px;
+  padding: 14px 16px;
+  position: relative;
+}
+
+.res-card.destaque {
+  background: linear-gradient(160deg, #fdf6e3, #f4e7c4);
+  border-color: var(--sol);
+}
+
+.res-card.destaque::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: var(--sol);
+  border-radius: 3px 0 0 3px;
+}
+
+.res-rot {
+  display: block;
+  font-size: 0.64rem;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--tinta-fraca);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.res-val {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.8px;
+  line-height: 1.12;
+  color: var(--tinta);
+}
+
+.res-val small {
+  font-size: 0.55em;
+  font-weight: 600;
+  color: var(--tinta-suave);
+  letter-spacing: 0;
+  font-style: italic;
+}
+
+.res-sub {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--tinta-fraca);
+  margin-top: 6px;
+  font-style: italic;
+  line-height: 1.35;
+}
+
+.res-sub.ok { color: #4f7a3a; font-style: normal; font-weight: 600; }
+
+/* ============================================================
+   NOTA
+   ============================================================ */
+.nota {
+  font-size: 0.83rem;
+  line-height: 1.7;
+  color: var(--tinta-media);
+  padding: 16px 20px;
+  border-left: 3px solid var(--terracota);
+  background: rgba(168, 84, 58, 0.05);
+  border-radius: 0 8px 8px 0;
+  font-family: Georgia, serif;
+}
+
+.nota strong { color: var(--terracota); font-weight: 700; }
+.nota em { font-style: italic; }
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+@media (max-width: 820px) {
+  .gnomons { grid-template-columns: 1fr; }
+  .cabecalho { flex-direction: column; align-items: flex-start; }
+  body { padding: 16px 12px 32px; }
+  .painel { padding: 14px; }
+}
+
+@media (max-width: 520px) {
+  .controles { gap: 12px; }
+  .btn { padding: 9px 14px; font-size: 0.78rem; }
+  .res-val { font-size: 1.3rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ================= CABEÇALHO ================= -->
+  <header class="cabecalho">
+    <div>
+      <h1>O Experimento de Eratóstenes <em>— Edição Brasil</em></h1>
+      <p class="subtitulo">Como dois bastões e uma sombra mediram o raio da Terra — 240 a.C.</p>
+    </div>
+    <div class="data-badge">Solstício de dezembro · δ = −23,44°</div>
+  </header>
+
+  <!-- ================= MAPA ================= -->
+  <section class="painel">
+    <div class="painel-titulo">O mundo visto do espaço — dia, noite e o Sol a pino</div>
+    <div class="mapa-wrap">
+      <svg id="mapa" viewBox="0 0 1440 720" preserveAspectRatio="xMidYMid meet"
+           aria-label="Mapa-múndi com São Paulo e Porto Alegre">
+        <defs>
+          <radialGradient id="gradOceano" cx="50%" cy="45%" r="70%">
+            <stop offset="0%"   stop-color="#eee5cf"/>
+            <stop offset="100%" stop-color="#e0d5b8"/>
+          </radialGradient>
+          <radialGradient id="gradSol">
+            <stop offset="0%"   stop-color="#fff5d6" stop-opacity="0.95"/>
+            <stop offset="25%"  stop-color="#f0cd83" stop-opacity="0.55"/>
+            <stop offset="60%"  stop-color="#dda84a" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="#dda84a" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+
+        <rect width="1440" height="720" fill="url(#gradOceano)"/>
+        <g id="graducao"></g>
+        <g id="terras"></g>
+        <path id="noite" fill="rgba(46, 55, 72, 0.32)"></path>
+        <g id="linhasEspeciais"></g>
+        <g id="marcadores"></g>
+        <g id="solMapa"></g>
+      </svg>
+    </div>
+
+    <div class="mapa-legenda">
+      <span class="leg-item"><span class="leg-cor" style="background:#a8543a"></span> São Paulo (23,55° S)</span>
+      <span class="leg-item"><span class="leg-cor" style="background:#5e6b48"></span> Porto Alegre (30,03° S)</span>
+      <span class="leg-item"><span class="leg-cor" style="background:#e6b84a;box-shadow:0 0 0 3px rgba(200,140,40,0.20)"></span> Ponto subsolar (Sol a pino)</span>
+      <span class="leg-item"><span class="leg-linha"></span> Trópico de Capricórnio (23,44° S)</span>
+    </div>
+  </section>
+
+  <!-- ================= GNOMONS ================= -->
+  <section class="gnomons">
+    <article class="gnomon-card" id="card-sp" style="--acento:#a8543a;--acento-suave:rgba(168,84,58,0.28)">
+      <div class="gnomon-topo">
+        <span class="gnomon-nome">São Paulo</span>
+        <span class="gnomon-coord">23,55° S · 46,63° O</span>
+      </div>
+      <svg class="gnomon-svg" id="svg-sp" viewBox="0 0 260 180" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="gnomon-leituras">
+        <div class="leitura">
+          <span class="leitura-rot">Ângulo da sombra</span>
+          <span class="leitura-val acento" id="ang-sp">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Altura do Sol</span>
+          <span class="leitura-val" id="ele-sp">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Hora solar local</span>
+          <span class="leitura-val" id="hora-sp">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Sombra ÷ bastão</span>
+          <span class="leitura-val" id="som-sp">—</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="gnomon-card" id="card-poa" style="--acento:#5e6b48;--acento-suave:rgba(94,107,72,0.28)">
+      <div class="gnomon-topo">
+        <span class="gnomon-nome">Porto Alegre</span>
+        <span class="gnomon-coord">30,03° S · 51,23° O</span>
+      </div>
+      <svg class="gnomon-svg" id="svg-poa" viewBox="0 0 260 180" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="gnomon-leituras">
+        <div class="leitura">
+          <span class="leitura-rot">Ângulo da sombra</span>
+          <span class="leitura-val acento" id="ang-poa">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Altura do Sol</span>
+          <span class="leitura-val" id="ele-poa">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Hora solar local</span>
+          <span class="leitura-val" id="hora-poa">—</span>
+        </div>
+        <div class="leitura">
+          <span class="leitura-rot">Sombra ÷ bastão</span>
+          <span class="leitura-val" id="som-poa">—</span>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ================= CONTROLES ================= -->
+  <section class="painel">
+    <div class="painel-titulo">Controle do tempo</div>
+    <div class="controles">
+      <button class="btn primario" id="btn-play">▶ Animar o dia</button>
+      <button class="btn" id="btn-meiodia">Ir para o meio-dia</button>
+
+      <div class="slider-bloco">
+        <div class="slider-cabecalho">
+          <span class="slider-rot">Hora solar local</span>
+          <span class="slider-hora" id="rotulo-hora">12:00</span>
+        </div>
+        <input type="range" id="slider-tempo" min="0" max="24" step="0.02" value="12">
+        <div class="slider-escala">
+          <span>00h</span><span>06h</span><span>12h</span><span>18h</span><span>24h</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULTADOS ================= -->
+  <section class="painel">
+    <div class="painel-titulo">Medições e cálculo do raio terrestre</div>
+    <div class="resultados">
+
+      <div class="res-card">
+        <span class="res-rot">Ângulo — São Paulo</span>
+        <span class="res-val" style="color:#a8543a" id="res-ang-sp">—</span>
+      </div>
+
+      <div class="res-card">
+        <span class="res-rot">Ângulo — Porto Alegre</span>
+        <span class="res-val" style="color:#5e6b48" id="res-ang-poa">—</span>
+      </div>
+
+      <div class="res-card destaque">
+        <span class="res-rot">Diferença angular Δθ</span>
+        <span class="res-val" id="res-delta">—</span>
+        <span class="res-sub" id="res-delta-sub">medida ao meio-dia local</span>
+      </div>
+
+      <div class="res-card">
+        <span class="res-rot">Distância norte–sul</span>
+        <span class="res-val" id="res-dist">721 <small>km</small></span>
+        <span class="res-sub">ao longo do meridiano</span>
+      </div>
+
+      <div class="res-card destaque">
+        <span class="res-rot">Raio da Terra estimado</span>
+        <span class="res-val" id="res-raio">—</span>
+        <span class="res-sub" id="res-raio-sub">R = d / Δθ</span>
+      </div>
+
+      <div class="res-card">
+        <span class="res-rot">Circunferência terrestre</span>
+        <span class="res-val" id="res-circ">—</span>
+        <span class="res-sub" id="res-circ-sub">valor real: 40 075 km</span>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= NOTA ================= -->
+  <section class="nota">
+    <strong>Como funciona:</strong> no solstício de dezembro, ao meio-dia solar, o Sol fica exatamente
+    a pino sobre o Trópico de Capricórnio (23,44° S) — praticamente sobre São Paulo. Em Porto Alegre,
+    cerca de 6,5° mais ao sul, o <em>gnômon</em> (o bastão) projeta uma sombra. O ângulo dessa sombra
+    é igual à diferença de latitude entre as duas cidades. Como essa diferença (≈ 6,5°) corresponde a
+    uma fração fixa da circunferência, multiplicamos a distância entre as cidades pela razão
+    <em>360° / Δθ</em> e obtemos o tamanho do planeta.
+  </section>
+
+</div>
+
+<script>
+/* ==============================================================
+   EXPERIMENTO DE ERATÓSTENES — SIMULADOR (Edição Brasil)
+   --------------------------------------------------------------
+   Modelo:
+     cos(z) = sin(φ)·sin(δ) + cos(φ)·cos(δ)·cos(H)
+     z  = ângulo zenital (ângulo da sombra em relação à vertical)
+     φ  = latitude do local (positiva ao NORTE, negativa ao SUL)
+     δ  = declinação solar (dezembro = −23,44°)
+     H  = ângulo horário = (hora_solar_local − 12) × 15°
+   ============================================================== */
+
+'use strict';
+
+// ---------- Constantes ----------
+const DEG = Math.PI / 180;
+const RAD = 180 / Math.PI;
+const DELTA_SOL = -23.44;            // solstício de dezembro
+const RAIO_REAL = 6371;              // km
+const DISTANCIA_KM = 721;            // distância norte-sul SP ↔ POA
+const LON_CENTRAL = -48.93;          // longitude média (centro do experimento)
+
+// ---------- Cidades ----------
+const CIDADES = [
+  { id: 'sp',  nome: 'São Paulo',    lat: -23.55, lon: -46.63, cor: '#a8543a' },
+  { id: 'poa', nome: 'Porto Alegre', lat: -30.03, lon: -51.23, cor: '#5e6b48' }
+];
+
+// ---------- Estado ----------
+let hora = 12;
+let animando = false;
+let tAnterior = 0;
+let frameId = null;
+
+// ==============================================================
+// 1. FÍSICA SOLAR
+// ==============================================================
+
+function posicaoSolar(latGraus, horaLocal) {
+  const phi = latGraus * DEG;
+  const delta = DELTA_SOL * DEG;
+  const H = (horaLocal - 12) * 15 * DEG;
+
+  const cosZ = Math.sin(phi) * Math.sin(delta) +
+               Math.cos(phi) * Math.cos(delta) * Math.cos(H);
+
+  const z = Math.acos(Math.max(-1, Math.min(1, cosZ)));
+  const elevacao = Math.PI / 2 - z;
+
+  return { z, elevacao, noite: elevacao < 0 };
+}
+
+function latitudeTerminador(lonGraus, lonSubsolar) {
+  const H = (lonGraus - lonSubsolar) * DEG;
+  return Math.atan(-Math.cos(H) / Math.tan(DELTA_SOL * DEG)) * RAD;
+}
+
+// ==============================================================
+// 2. MAPA
+// ==============================================================
+
+const proj = (lon, lat) => [(lon + 180) * 4, (90 - lat) * 4];
+
+const TERRAS = [
+  [[-168,66],[-164,70],[-155,71],[-140,70],[-128,70],[-115,69],[-100,69],[-85,70],[-80,73],
+   [-68,70],[-64,60],[-56,52],[-66,45],[-70,42],[-76,35],[-81,25],[-84,30],[-90,29],[-97,26],
+   [-105,22],[-114,31],[-118,33],[-124,40],[-124,48],[-131,53],[-140,60],[-150,59],[-160,55],[-165,60]],
+  [[-45,60],[-20,70],[-18,76],[-30,83],[-55,83],[-62,76],[-55,65]],
+  [[-81,8],[-76,10],[-70,12],[-60,10],[-52,5],[-50,0],[-44,-2],[-35,-6],[-38,-13],[-40,-20],
+   [-48,-25],[-53,-33],[-58,-38],[-62,-41],[-65,-45],[-68,-52],[-70,-55],[-75,-52],[-73,-45],
+   [-72,-38],[-71,-30],[-70,-20],[-75,-14],[-80,-5],[-81,0],[-78,2]],
+  [[-17,21],[-17,15],[-13,9],[-8,5],[0,5],[6,4],[9,4],[9,-1],[12,-6],[13,-11],[12,-17],
+   [15,-23],[18,-29],[20,-35],[26,-34],[33,-26],[35,-22],[40,-16],[41,-10],[40,-3],[42,0],
+   [45,5],[51,12],[44,12],[43,11],[38,15],[37,22],[34,28],[32,31],[25,32],[20,32],[10,37],
+   [3,37],[-2,35],[-6,36],[-10,30],[-13,25]],
+  [[-10,36],[-9,43],[-2,43],[-2,48],[3,51],[8,54],[10,58],[5,58],[8,63],[15,68],[22,70],
+   [30,70],[40,68],[55,68],[60,70],[70,73],[80,73],[100,77],[115,75],[130,73],[140,73],
+   [160,70],[170,68],[180,65],[180,60],[162,60],[160,55],[155,50],[142,54],[140,46],
+   [130,43],[128,35],[122,31],[120,24],[110,21],[108,11],[105,9],[100,13],[98,8],[95,16],
+   [90,22],[80,16],[77,8],[72,20],[68,24],[62,25],[57,25],[50,29],[48,30],[43,12],[35,29],
+   [35,36],[28,36],[26,40],[32,45],[40,45],[48,46],[45,50],[38,48],[30,46],[28,41],[23,40],
+   [20,42],[13,45],[12,44],[15,40],[18,40],[16,38],[12,37],[15,37],[11,34],[10,37],[3,37],[-2,36]],
+  [[113,-22],[114,-33],[118,-35],[129,-32],[137,-35],[141,-38],[147,-38],[150,-37],
+   [153,-28],[146,-19],[142,-11],[136,-12],[130,-11],[125,-14],[122,-18]],
+  [[-180,-70],[-140,-75],[-100,-73],[-60,-63],[-20,-70],[20,-70],[60,-67],[100,-66],
+   [140,-67],[180,-70],[180,-90],[-180,-90]],
+  [[43,-13],[50,-15],[50,-25],[45,-25]],
+  [[-5,50],[-2,53],[-3,58],[-5,58],[-6,54]],
+  [[130,32],[140,36],[142,42],[145,44],[141,45],[136,37]],
+  [[95,5],[105,-6],[115,-8],[130,-8],[141,-8],[141,-2],[130,0],[120,0],[110,2],[100,6]],
+  [[173,-35],[178,-38],[174,-41],[170,-46],[167,-46],[172,-41]]
+];
+
+function construirMapa() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const gGrad = document.getElementById('graducao');
+  const gTerr = document.getElementById('terras');
+  const gEsp  = document.getElementById('linhasEspeciais');
+  const gMarc = document.getElementById('marcadores');
+
+  // Grade discreta
+  for (let lon = -180; lon <= 180; lon += 30) {
+    const x = proj(lon, 0)[0];
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', x); l.setAttribute('y1', 0);
+    l.setAttribute('x2', x); l.setAttribute('y2', 720);
+    l.setAttribute('stroke', lon === 0 ? '#c5b694' : '#d6c9a8');
+    l.setAttribute('stroke-width', lon === 0 ? 1.3 : 0.9);
+    gGrad.appendChild(l);
+  }
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const y = proj(0, lat)[1];
+    const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', 0); l.setAttribute('y1', y);
+    l.setAttribute('x2', 1440); l.setAttribute('y2', y);
+    l.setAttribute('stroke', lat === 0 ? '#c5b694' : '#d6c9a8');
+    l.setAttribute('stroke-width', lat === 0 ? 1.3 : 0.9);
+    gGrad.appendChild(l);
+  }
+
+  // Continentes
+  TERRAS.forEach(poly => {
+    const d = poly.map(([lon, lat], i) => {
+      const [x, y] = proj(lon, lat);
+      return (i ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
+    }).join(' ') + ' Z';
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', '#cdbe99');
+    p.setAttribute('stroke', '#a9997a');
+    p.setAttribute('stroke-width', '1');
+    p.setAttribute('stroke-linejoin', 'round');
+    gTerr.appendChild(p);
+  });
+
+  // Linhas especiais: Equador + Trópico de Capricórnio
+  const yEq = proj(0, 0)[1];
+  const eq = document.createElementNS(NS, 'line');
+  eq.setAttribute('x1', 0); eq.setAttribute('y1', yEq);
+  eq.setAttribute('x2', 1440); eq.setAttribute('y2', yEq);
+  eq.setAttribute('stroke', '#a89878');
+  eq.setAttribute('stroke-width', '1.2');
+  eq.setAttribute('stroke-dasharray', '2 6');
+  gEsp.appendChild(eq);
+
+  const yTrop = proj(0, DELTA_SOL)[1];
+  const trop = document.createElementNS(NS, 'line');
+  trop.setAttribute('x1', 0); trop.setAttribute('y1', yTrop);
+  trop.setAttribute('x2', 1440); trop.setAttribute('y2', yTrop);
+  trop.setAttribute('stroke', '#b88b3a');
+  trop.setAttribute('stroke-width', '1.7');
+  trop.setAttribute('stroke-dasharray', '10 6');
+  gEsp.appendChild(trop);
+
+  const rot = document.createElementNS(NS, 'text');
+  rot.setAttribute('x', 16);
+  rot.setAttribute('y', yTrop + 26);
+  rot.setAttribute('fill', '#8a6829');
+  rot.setAttribute('font-size', '19');
+  rot.setAttribute('font-family', 'Georgia, serif');
+  rot.setAttribute('font-style', 'italic');
+  rot.textContent = 'Trópico de Capricórnio — Sol a pino no solstício de dezembro';
+  gEsp.appendChild(rot);
+
+  // Marcadores com linhas-guia
+  const marcas = [
+    { c: CIDADES[0], lx: 130,  ly: -78, anchor: 'start' },  // SP: sobe-direita
+    { c: CIDADES[1], lx: -130, ly:  78, anchor: 'end'   }   // POA: desce-esquerda
+  ];
+
+  marcas.forEach(({ c, lx, ly, anchor }) => {
+    const [x, y] = proj(c.lon, c.lat);
+
+    // linha-guia
+    const guia = document.createElementNS(NS, 'line');
+    guia.setAttribute('x1', x); guia.setAttribute('y1', y);
+    guia.setAttribute('x2', x + lx * 0.85); guia.setAttribute('y2', y + ly * 0.85);
+    guia.setAttribute('stroke', c.cor);
+    guia.setAttribute('stroke-width', '1');
+    guia.setAttribute('stroke-dasharray', '3 3');
+    guia.setAttribute('opacity', '0.7');
+    gMarc.appendChild(guia);
+
+    // ponto (anel + núcleo)
+    const anel = document.createElementNS(NS, 'circle');
+    anel.setAttribute('cx', x); anel.setAttribute('cy', y);
+    anel.setAttribute('r', 9);
+    anel.setAttribute('fill', 'none');
+    anel.setAttribute('stroke', c.cor);
+    anel.setAttribute('stroke-width', '1.4');
+    anel.setAttribute('opacity', '0.7');
+    gMarc.appendChild(anel);
+
+    const pt = document.createElementNS(NS, 'circle');
+    pt.setAttribute('cx', x); pt.setAttribute('cy', y);
+    pt.setAttribute('r', 4.5);
+    pt.setAttribute('fill', c.cor);
+    pt.setAttribute('stroke', '#f8f2e3');
+    pt.setAttribute('stroke-width', '1.5');
+    gMarc.appendChild(pt);
+
+    // rótulo principal
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', x + lx);
+    txt.setAttribute('y', y + ly);
+    txt.setAttribute('text-anchor', anchor);
+    txt.setAttribute('fill', c.cor);
+    txt.setAttribute('font-size', '24');
+    txt.setAttribute('font-family', 'Georgia, serif');
+    txt.setAttribute('font-weight', '700');
+    txt.textContent = c.nome;
+    gMarc.appendChild(txt);
+
+    // sub-rótulo
+    const sub = document.createElementNS(NS, 'text');
+    sub.setAttribute('x', x + lx);
+    sub.setAttribute('y', y + ly + 22);
+    sub.setAttribute('text-anchor', anchor);
+    sub.setAttribute('fill', '#857960');
+    sub.setAttribute('font-size', '17');
+    sub.setAttribute('font-family', 'Georgia, serif');
+    sub.setAttribute('font-style', 'italic');
+    sub.textContent = Math.abs(c.lat).toFixed(2).replace('.', ',') + '° S';
+    gMarc.appendChild(sub);
+  });
+
+  // Arco de latitude entre as cidades
+  const [x1, y1] = proj(CIDADES[0].lon, CIDADES[0].lat);
+  const [x2, y2] = proj(CIDADES[1].lon, CIDADES[1].lat);
+  const cx = (x1 + x2) / 2 + 70;
+  const arco = document.createElementNS(NS, 'path');
+  arco.setAttribute('d', `M ${x1} ${y1} Q ${cx} ${(y1+y2)/2} ${x2} ${y2}`);
+  arco.setAttribute('fill', 'none');
+  arco.setAttribute('stroke', '#574b39');
+  arco.setAttribute('stroke-width', '1');
+  arco.setAttribute('stroke-dasharray', '3 4');
+  arco.setAttribute('opacity', '0.55');
+  gMarc.appendChild(arco);
+}
+
+function atualizarMapa(lonSubsolar) {
+  // Terminador (sombra noturna)
+  const pontos = [];
+  for (let lon = -180; lon <= 180; lon += 3) {
+    const latT = latitudeTerminador(lon, lonSubsolar);
+    pontos.push(proj(lon, latT));
+  }
+  let d = pontos.map((p, i) =>
+    (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)
+  ).join(' ');
+  // Fecha pelo norte (polo em noite no solstício de dezembro)
+  d += ' L 1440 0 L 0 0 Z';
+  document.getElementById('noite').setAttribute('d', d);
+
+  // Sol subsolar
+  const g = document.getElementById('solMapa');
+  const [sx, sy] = proj(lonSubsolar, DELTA_SOL);
+  g.innerHTML = `
+    <circle cx="${sx}" cy="${sy}" r="130" fill="url(#gradSol)"/>
+    <circle cx="${sx}" cy="${sy}" r="9" fill="#f0cd83"/>
+    <circle cx="${sx}" cy="${sy}" r="4" fill="#fff5d6"/>
+  `;
+}
+
+// ==============================================================
+// 3. GNOMONS
+// ==============================================================
+
+const GX_BASE = 70;
+const GY_SOLO = 148;
+const G_ALTURA = 95;
+const GY_TOPO = GY_SOLO - G_ALTURA;
+const SOMBRA_MAX = 190;
+
+function desenharGnomon(cidade, info) {
+  const svg = document.getElementById('svg-' + cidade.id);
+  const cor = cidade.cor;
+  let html = '';
+
+  // ---------- CENA NOTURNA ----------
+  if (info.noite) {
+    html = `
+      <rect width="260" height="180" fill="#e8dfc8"/>
+      <rect width="260" height="180" fill="rgba(58, 68, 90, 0.28)"/>
+      <line x1="0" y1="${GY_SOLO}" x2="260" y2="${GY_SOLO}"
+            stroke="#8a8070" stroke-width="1.6"/>
+      <rect x="${GX_BASE - 3.2}" y="${GY_TOPO}" width="6.4" height="${G_ALTURA}"
+            rx="3" fill="#4a4238"/>
+      <circle cx="212" cy="42" r="14" fill="#f0e6cc" opacity="0.85"/>
+      <circle cx="208" cy="39" r="14" fill="#e8dfc8" opacity="0.9"/>
+      <text x="130" y="176" text-anchor="middle" fill="#7d7259"
+            font-size="12" font-family="Georgia, serif" font-style="italic">
+        Noite — o Sol está abaixo do horizonte
+      </text>
+    `;
+    svg.innerHTML = html;
+    return;
+  }
+
+  // ---------- GEOMETRIA ----------
+  const z = Math.min(info.z, 89.2 * DEG);
+  const e = Math.PI / 2 - z;
+  const dirX = Math.cos(e), dirY = Math.sin(e);
+
+  let L = G_ALTURA * Math.tan(z);
+  const cortada = L > SOMBRA_MAX;
+  L = Math.min(L, SOMBRA_MAX);
+
+  // ---------- RAIOS SOLARES ----------
+  let raios = '';
+  [-100, -62, -24, 14].forEach(dx => {
+    const x0 = GX_BASE + dx, y0 = GY_TOPO;
+
+    let tBack = 260;
+    if (dirX > 0.001) tBack = Math.min(tBack, x0 / dirX);
+    if (dirY > 0.001) tBack = Math.min(tBack, y0 / dirY);
+    const sx = x0 - dirX * tBack;
+    const sy = y0 - dirY * tBack;
+
+    const tChao    = dirY > 0.001 ? (GY_SOLO - y0) / dirY : Infinity;
+    const tDireita = dirX > 0.001 ? (260 - x0) / dirX : Infinity;
+    const tFim = Math.min(tChao, tDireita);
+    const ex = x0 + dirX * tFim;
+    const ey = y0 + dirY * tFim;
+
+    raios += `<line x1="${sx.toFixed(1)}" y1="${sy.toFixed(1)}"
+                    x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}"
+                    stroke="#d4a548" stroke-width="1"
+                    opacity="0.55" stroke-linecap="round"/>`;
+  });
+
+  // ---------- ARCO DO ÂNGULO ----------
+  const rArco = 46;
+  const passos = 26;
+  const ptsArco = [];
+  for (let i = 0; i <= passos; i++) {
+    const a = z * i / passos;
+    ptsArco.push(
+      (GX_BASE + rArco * Math.sin(a)).toFixed(1) + ',' +
+      (GY_TOPO + rArco * Math.cos(a)).toFixed(1)
+    );
+  }
+
+  // ---------- LINHA VERTICAL DE REFERÊNCIA ----------
+  const referencia = `
+    <line x1="${GX_BASE}" y1="${GY_TOPO}" x2="${GX_BASE}" y2="10"
+          stroke="#857960" stroke-width="1" stroke-dasharray="3 5"
+          opacity="0.6"/>
+  `;
+
+  // ---------- SOMBRA (retângulo com gradiente) ----------
+  const sombra = `
+    <defs>
+      <linearGradient id="gradSombra-${cidade.id}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%"   stop-color="${cor}" stop-opacity="0.75"/>
+        <stop offset="100%" stop-color="${cor}" stop-opacity="0.35"/>
+      </linearGradient>
+    </defs>
+    <rect x="${GX_BASE}" y="${GY_SOLO - 3}"
+          width="${L.toFixed(1)}" height="6"
+          fill="url(#gradSombra-${cidade.id})" rx="2"/>
+    ${cortada ? `<text x="${(GX_BASE + L - 6).toFixed(0)}" y="${GY_SOLO - 9}"
+                       text-anchor="end" fill="${cor}" opacity="0.9"
+                       font-size="14" font-family="Georgia, serif">…</text>` : ''}
+  `;
+
+  // ---------- BASTÃO (gnômon) ----------
+  const bastao = `
+    <rect x="${GX_BASE - 3.2}" y="${GY_TOPO}" width="6.4" height="${G_ALTURA}"
+          rx="3" fill="#4a4238"/>
+    <rect x="${GX_BASE - 3.2}" y="${GY_TOPO}" width="2" height="${G_ALTURA}"
+          rx="1" fill="#6f6452" opacity="0.7"/>
+    <circle cx="${GX_BASE}" cy="${GY_TOPO}" r="3.2" fill="#2f281c"/>
+  `;
+
+  // ---------- CHÃO ----------
+  const chao = `
+    <line x1="0" y1="${GY_SOLO}" x2="260" y2="${GY_SOLO}"
+          stroke="#8a8070" stroke-width="1.6"/>
+    <rect x="0" y="${GY_SOLO}" width="260" height="32" fill="#ddd0b3"/>
+  `;
+
+  // ---------- SOL (disco sutil no canto) ----------
+  const solDisco = `
+    <defs>
+      <radialGradient id="gradSol-${cidade.id}">
+        <stop offset="0%"   stop-color="#f0cd83" stop-opacity="0.75"/>
+        <stop offset="100%" stop-color="#f0cd83" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="14" cy="8" r="90" fill="url(#gradSol-${cidade.id})"/>
+  `;
+
+  html = `
+    ${solDisco}
+    ${raios}
+    ${chao}
+    ${sombra}
+    ${referencia}
+    ${bastao}
+    <polyline points="${ptsArco.join(' ')}" fill="none"
+              stroke="${cor}" stroke-width="1.6" stroke-linecap="round"
+              opacity="0.85"/>
+  `;
+
+  svg.innerHTML = html;
+}
+
+// ==============================================================
+// 4. ATUALIZAÇÃO GERAL
+// ==============================================================
+
+const fmt = (v, d = 2) => v.toFixed(d).replace('.', ',');
+
+function formatarHora(h) {
+  const hh = Math.floor(h) % 24;
+  const mm = Math.round((h - Math.floor(h)) * 60);
+  const m2 = mm === 60 ? 0 : mm;
+  const h2 = mm === 60 ? (hh + 1) % 24 : hh;
+  return String(h2).padStart(2, '0') + ':' + String(m2).padStart(2, '0');
+}
+
+function atualizar() {
+  // Posições solares
+  const infos = CIDADES.map(c => Object.assign({}, c, posicaoSolar(c.lat, hora)));
+
+  // Gnomons
+  infos.forEach(info => desenharGnomon(info, info));
+
+  // Mapa
+  let lonSubsolar = LON_CENTRAL + (12 - hora) * 15;
+  lonSubsolar = ((lonSubsolar + 180) % 360 + 360) % 360 - 180;
+  atualizarMapa(lonSubsolar);
+
+  // Leituras dos gnomons
+  const sufixo = ['sp', 'poa'];
+  infos.forEach((info, i) => {
+    const s = sufixo[i];
+    const elAng = document.getElementById('ang-' + s);
+    const elEle = document.getElementById('ele-' + s);
+    const elHor = document.getElementById('hora-' + s);
+    const elSom = document.getElementById('som-' + s);
+
+    if (info.noite) {
+      elAng.textContent = '—';
+      elEle.textContent = '—';
+      elSom.textContent = '—';
+    } else {
+      const zDeg = info.z * RAD;
+      elAng.textContent = fmt(zDeg, 2) + '°';
+      elEle.textContent = fmt(90 - zDeg, 2) + '°';
+      elSom.textContent = fmt(Math.tan(info.z), 2) + ' × h';
+    }
+    elHor.textContent = formatarHora(hora);
+  });
+
+  // Resultados
+  const zSP  = infos[0].z * RAD;
+  const zPOA = infos[1].z * RAD;
+  const ambasDia = !infos[0].noite && !infos[1].noite;
+  const deltaAgora = Math.abs(zSP - zPOA);
+
+  document.getElementById('res-ang-sp').textContent  = infos[0].noite ? '—' : fmt(zSP, 2) + '°';
+  document.getElementById('res-ang-poa').textContent = infos[1].noite ? '—' : fmt(zPOA, 2) + '°';
+
+  const elDelta = document.getElementById('res-delta');
+  const elDeltaSub = document.getElementById('res-delta-sub');
+
+  elDelta.textContent = ambasDia ? fmt(deltaAgora, 2) + '°' : '—';
+
+  const pertoDoMeioDia = Math.abs(hora - 12) < 0.35;
+  const cardDelta = elDelta.closest('.res-card');
+  cardDelta.classList.toggle('destaque', pertoDoMeioDia);
+
+  if (pertoDoMeioDia) {
+    elDeltaSub.textContent = 'meio-dia local — valor válido';
+    elDeltaSub.classList.add('ok');
+  } else {
+    elDeltaSub.textContent = 'medida ao meio-dia local';
+    elDeltaSub.classList.remove('ok');
+  }
+
+  // Cálculo do raio (com os ângulos do meio-dia)
+  const zNoonSP  = posicaoSolar(CIDADES[0].lat, 12).z * RAD;
+  const zNoonPOA = posicaoSolar(CIDADES[1].lat, 12).z * RAD;
+  const deltaTheta = Math.abs(zNoonSP - zNoonPOA);
+  const deltaRad = deltaTheta * DEG;
+  const raioEstimado = DISTANCIA_KM / deltaRad;
+  const circunferencia = 2 * Math.PI * raioEstimado;
+
+  document.getElementById('res-raio').innerHTML =
+    Math.round(raioEstimado).toLocaleString('pt-BR') + ' <small>km</small>';
+
+  const erro = ((raioEstimado - RAIO_REAL) / RAIO_REAL) * 100;
+  document.getElementById('res-raio-sub').textContent =
+    `Δθ = ${fmt(deltaTheta, 2)}° → R = d / Δθ   (real: ${RAIO_REAL.toLocaleString('pt-BR')} km, erro ${erro > 0 ? '+' : ''}${fmt(erro, 1)}%)`;
+
+  document.getElementById('res-circ').innerHTML =
+    Math.round(circunferencia).toLocaleString('pt-BR') + ' <small>km</small>';
+
+  const erroC = ((circunferencia - 40075) / 40075) * 100;
+  document.getElementById('res-circ-sub').textContent =
+    `valor real: 40 075 km  ·  erro ${erroC > 0 ? '+' : ''}${fmt(erroC, 1)}%`;
+
+  // Rótulo de hora
+  document.getElementById('rotulo-hora').textContent = formatarHora(hora);
+}
+
+// ==============================================================
+// 5. INTERAÇÃO
+// ==============================================================
+
+const slider = document.getElementById('slider-tempo');
+const btnPlay = document.getElementById('btn-play');
+const btnMeioDia = document.getElementById('btn-meiodia');
+
+slider.addEventListener('input', () => {
+  pararAnimacao();
+  hora = parseFloat(slider.value);
+  atualizar();
+});
+
+btnMeioDia.addEventListener('click', () => {
+  pararAnimacao();
+  hora = 12;
+  slider.value = 12;
+  atualizar();
+});
+
+btnPlay.addEventListener('click', () => {
+  if (animando) pararAnimacao();
+  else iniciarAnimacao();
+});
+
+function iniciarAnimacao() {
+  animando = true;
+  btnPlay.textContent = '⏸  Pausar';
+  btnPlay.classList.remove('primario');
+  tAnterior = performance.now();
+  frameId = requestAnimationFrame(loop);
+}
+
+function pararAnimacao() {
+  animando = false;
+  btnPlay.textContent = '▶  Animar o dia';
+  btnPlay.classList.add('primario');
+  if (frameId) cancelAnimationFrame(frameId);
+  frameId = null;
+}
+
+function loop(t) {
+  if (!animando) return;
+  const dt = Math.min((t - tAnterior) / 1000, 0.1);
+  tAnterior = t;
+
+  hora += dt * 1.4;
+  if (hora >= 24) hora -= 24;
+
+  slider.value = hora;
+  atualizar();
+
+  frameId = requestAnimationFrame(loop);
+}
+
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') {
+    pararAnimacao();
+    const passo = ev.shiftKey ? 1 : 0.25;
+    hora += (ev.key === 'ArrowRight' ? passo : -passo);
+    hora = ((hora % 24) + 24) % 24;
+    slider.value = hora;
+    atualizar();
+    ev.preventDefault();
+  }
+});
+
+// ==============================================================
+// 6. INICIALIZAÇÃO
+// ==============================================================
+
+construirMapa();
+atualizar();
+</script>
+
+</body>
+</html>
